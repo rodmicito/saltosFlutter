@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:jump_counter/services/accelerometer_service.dart';
+import 'package:jump_counter/services/background_service.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:math';
 
 class JumpCounterScreen extends StatefulWidget {
@@ -15,6 +18,7 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
   final AccelerometerService _accelerometerService = AccelerometerService();
   int _jumpCount = 0;
   bool _isMonitoring = false;
+  bool _isBackgroundMode = false;
   
   // Valores para el control deslizante de sensibilidad
   double _sensitivity = 3.6;
@@ -41,6 +45,40 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
     _accelerometerService.onAccelerometerData = _onAccelerometerData;
     _accelerometerService.onVariationPercentage = _onVariationPercentage;
     _sensitivity = _accelerometerService.jumpThreshold;
+    
+    // Inicializar el servicio de segundo plano
+    _initializeBackgroundService();
+    
+    // Escuchar actualizaciones del servicio de segundo plano
+    FlutterBackgroundService().on('jumpDetected').listen((event) {
+      if (mounted && _isBackgroundMode) {
+        setState(() {
+          _jumpCount = event!['count'];
+        });
+      }
+    });
+    
+    FlutterBackgroundService().on('countReset').listen((event) {
+      if (mounted && _isBackgroundMode) {
+        setState(() {
+          _jumpCount = event!['count'];
+        });
+      }
+    });
+  }
+  
+  Future<void> _initializeBackgroundService() async {
+    await BackgroundService.initialize();
+    
+    // Solicitar permisos necesarios
+    await _requestPermissions();
+  }
+  
+  Future<void> _requestPermissions() async {
+    await Permission.notification.request();
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
   }
   
   void _onAccelerometerData(AccelerometerEvent event) {
@@ -74,26 +112,40 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
     });
   }
 
-  void _toggleMonitoring() {
+  void _toggleMonitoring() async {
     setState(() {
       _isMonitoring = !_isMonitoring;
-      if (_isMonitoring) {
-        _accelerometerService.startMonitoring();
-      } else {
-        _accelerometerService.stopMonitoring();
-      }
     });
+    
+    if (_isMonitoring) {
+      // Iniciar servicio de segundo plano
+      await BackgroundService.startService();
+      BackgroundService.setThreshold(_sensitivity);
+      BackgroundService.startMonitoring();
+      _isBackgroundMode = true;
+      
+      // También iniciar el servicio local para datos en tiempo real
+      _accelerometerService.startMonitoring();
+    } else {
+      // Detener ambos servicios
+      BackgroundService.stopMonitoring();
+      _accelerometerService.stopMonitoring();
+      _isBackgroundMode = false;
+    }
   }
 
   void _resetCounter() {
     setState(() {
       _jumpCount = 0;
     });
+    
+    // También reiniciar el contador en el servicio de segundo plano
+    BackgroundService.resetCount();
   }
 
   void _shareResults() {
     Share.share(
-      '¡He completado $_jumpCount saltos con la aplicación de Contador de Saltos!\nVariación máxima: ${_variationPercentage.toStringAsFixed(1)}%',
+      '¡He completado $_jumpCount saltos con la aplicación de Contador de Saltos!\nVariación máxima: ${_variationPercentage.toStringAsFixed(1)}%\n\nFuncionamiento en segundo plano: ${_isBackgroundMode ? 'Activo' : 'Inactivo'}',
       subject: 'Mis resultados de saltos',
     );
   }
@@ -102,6 +154,9 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
     setState(() {
       _sensitivity = value;
       _accelerometerService.jumpThreshold = value;
+      
+      // Actualizar también el umbral en el servicio de segundo plano
+      BackgroundService.setThreshold(value);
     });
   }
 
@@ -154,6 +209,37 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                         foregroundColor: Colors.blue[300],
                       ),
                       child: const Text('Reiniciar contador'),
+                    ),
+                    const SizedBox(height: 15),
+                    // Indicador de servicio en segundo plano
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _isBackgroundMode ? Colors.green[900] : Colors.grey[800],
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _isBackgroundMode ? Colors.green[400]! : Colors.grey[600]!,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isBackgroundMode ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            color: _isBackgroundMode ? Colors.green[400] : Colors.grey[400],
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _isBackgroundMode ? 'Segundo plano activo' : 'Solo primer plano',
+                            style: TextStyle(
+                              color: _isBackgroundMode ? Colors.green[400] : Colors.grey[400],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
