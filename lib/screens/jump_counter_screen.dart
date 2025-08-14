@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jump_counter/services/accelerometer_service.dart';
 import 'package:jump_counter/services/background_service.dart';
+import 'package:jump_counter/services/home_widget_service.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -49,11 +50,16 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
     // Inicializar el servicio de segundo plano
     _initializeBackgroundService();
     
+    // Inicializar el widget de pantalla principal
+    _initializeHomeWidget();
+    
     // Escuchar actualizaciones del servicio de segundo plano
     FlutterBackgroundService().on('jumpDetected').listen((event) {
       if (mounted && _isBackgroundMode) {
         setState(() {
           _jumpCount = event!['count'];
+          // Actualizar el widget
+          _updateHomeWidget();
         });
       }
     });
@@ -62,6 +68,8 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
       if (mounted && _isBackgroundMode) {
         setState(() {
           _jumpCount = event!['count'];
+          // Actualizar el widget
+          _updateHomeWidget();
         });
       }
     });
@@ -72,6 +80,15 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
     
     // Solicitar permisos necesarios
     await _requestPermissions();
+  }
+  
+  Future<void> _initializeHomeWidget() async {
+    await HomeWidgetService.initialize();
+    HomeWidgetService.registerWidgetCallback();
+  }
+  
+  void _updateHomeWidget() {
+    HomeWidgetService.updateWidget(_jumpCount, _isMonitoring);
   }
   
   Future<void> _requestPermissions() async {
@@ -110,6 +127,8 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
     setState(() {
       _jumpCount++;
     });
+    // Actualizar el widget de pantalla principal
+    _updateHomeWidget();
   }
 
   void _toggleMonitoring() async {
@@ -132,6 +151,9 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
       _accelerometerService.stopMonitoring();
       _isBackgroundMode = false;
     }
+    
+    // Actualizar el widget con el nuevo estado
+    _updateHomeWidget();
   }
 
   void _resetCounter() {
@@ -141,6 +163,9 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
     
     // También reiniciar el contador en el servicio de segundo plano
     BackgroundService.resetCount();
+    
+    // Actualizar el widget
+    _updateHomeWidget();
   }
 
   void _shareResults() {
@@ -236,6 +261,45 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                             style: TextStyle(
                               color: _isBackgroundMode ? Colors.green[400] : Colors.grey[400],
                               fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Información del widget de pantalla principal
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[900]?.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[400]!, width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.widgets, color: Colors.blue[400], size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Widget de pantalla principal',
+                                  style: TextStyle(
+                                    color: Colors.blue[300],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Mantén presionado en la pantalla principal → Widgets → Contador de Saltos',
+                                  style: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
