@@ -142,12 +142,17 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                       onPressed: _toggleMonitoring,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                        backgroundColor: _isMonitoring ? Colors.red[700] : Colors.blue[700],
+                        foregroundColor: Colors.white,
                       ),
                       child: Text(_isMonitoring ? 'Detener' : 'Comenzar'),
                     ),
                     const SizedBox(height: 20),
                     TextButton(
                       onPressed: _resetCounter,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue[300],
+                      ),
                       child: const Text('Reiniciar contador'),
                     ),
                   ],
@@ -155,17 +160,17 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
               ),
               
               const SizedBox(height: 30),
-              const Divider(),
+              Divider(color: Colors.grey[700]),
               
               // Sección de ajuste de sensibilidad
-              const Text(
+              Text(
                 'Ajuste de sensibilidad:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300]),
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Text('Menos sensible'),
+                  Text('Menos sensible', style: TextStyle(color: Colors.grey[400])),
                   Expanded(
                     child: Slider(
                       value: _sensitivity,
@@ -173,24 +178,26 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                       max: _maxSensitivity,
                       divisions: 25,
                       label: _sensitivity.toStringAsFixed(2),
+                      activeColor: Colors.blue[400],
+                      inactiveColor: Colors.grey[700],
                       onChanged: _updateSensitivity,
                     ),
                   ),
-                  const Text('Más sensible'),
+                  Text('Más sensible', style: TextStyle(color: Colors.grey[400])),
                 ],
               ),
               Text(
                 'Valor actual: ${_sensitivity.toStringAsFixed(2)}',
-                style: const TextStyle(fontStyle: FontStyle.italic),
+                style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey[300]),
               ),
               
               const SizedBox(height: 30),
-              const Divider(),
+              Divider(color: Colors.grey[700]),
               
               // Sección del vector de variación porcentual
-              const Text(
+              Text(
                 'Vector de variación (%):',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300]),
               ),
               const SizedBox(height: 10),
               
@@ -198,7 +205,7 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
               LinearProgressIndicator(
                 value: _isMonitoring ? min(1.0, _variationPercentage / _maxVariationDisplay) : 0.0,
                 minHeight: 15,
-                backgroundColor: Colors.grey[300],
+                backgroundColor: Colors.grey[800],
                 valueColor: AlwaysStoppedAnimation<Color>(
                   _getVariationColor(_variationPercentage),
                 ),
@@ -214,41 +221,42 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
               ),
               Text(
                 'Umbral para detección: ${(_sensitivity * 10).toStringAsFixed(1)}%',
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(fontSize: 14, color: Colors.grey[400]),
               ),
               
               const SizedBox(height: 30),
-              const Divider(),
+              Divider(color: Colors.grey[700]),
               
               // Sección de datos del acelerómetro
-              const Text(
+              Text(
                 'Datos del acelerómetro:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300]),
               ),
               const SizedBox(height: 10),
               Card(
                 elevation: 4,
+                color: Colors.grey[900],
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('X: ${_xValue.toStringAsFixed(4)} m/s²'),
+                      Text('X: ${_xValue.toStringAsFixed(4)} m/s²', style: TextStyle(color: Colors.white)),
                       const SizedBox(height: 8),
-                      Text('Y: ${_yValue.toStringAsFixed(4)} m/s²'),
+                      Text('Y: ${_yValue.toStringAsFixed(4)} m/s²', style: TextStyle(color: Colors.white)),
                       const SizedBox(height: 8),
-                      Text('Z: ${_zValue.toStringAsFixed(4)} m/s²'),
+                      Text('Z: ${_zValue.toStringAsFixed(4)} m/s²', style: TextStyle(color: Colors.white)),
                       const SizedBox(height: 8),
                       Text(
                         'Magnitud: ${_magnitude.toStringAsFixed(4)} m/s²',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue[300]),
                       ),
                       const SizedBox(height: 12),
                       _isMonitoring
-                          ? const Text('Estado: Monitoreando...',
-                              style: TextStyle(color: Colors.green))
-                          : const Text('Estado: Detenido',
-                              style: TextStyle(color: Colors.red)),
+                          ? Text('Estado: Monitoreando...',
+                              style: TextStyle(color: Colors.green[400]))
+                          : Text('Estado: Detenido',
+                              style: TextStyle(color: Colors.red[400])),
                     ],
                   ),
                 ),
@@ -261,7 +269,8 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                   icon: const Icon(Icons.share),
                   label: const Text('Compartir mis resultados'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ),
