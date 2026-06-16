@@ -10,7 +10,9 @@ Aplicación Flutter que utiliza el acelerómetro del dispositivo para contar sal
 - 📈 Vector de variación porcentual en tiempo real
 - 📱 Visualización de datos del acelerómetro (X, Y, Z)
 - 📤 Función para compartir resultados
-- 🎨 Interfaz intuitiva y colorida
+- 🎨 Interfaz intuitiva y colorida (Material 3)
+- 🔄 Monitoreo continuo en segundo plano mediante servicio persistente (*Foreground Service*)
+- 🌗 Soporte completo de Tema Claro y Oscuro con alternancia en la barra superior
 
 ## Tecnologías utilizadas
 
@@ -74,11 +76,12 @@ flutter build ios --release
 
 ```
 lib/
-├── main.dart                    # Punto de entrada de la aplicación
+├── main.dart                    # Punto de entrada y configuración de servicios
 ├── screens/
-│   └── jump_counter_screen.dart # Pantalla principal del contador
+│   └── jump_counter_screen.dart # Interfaz de usuario adaptativa y controladora
 └── services/
-    └── accelerometer_service.dart # Servicio para manejo del acelerómetro
+    ├── accelerometer_service.dart # Algoritmo de detección y filtrado de saltos
+    └── background_service.dart    # Ciclo de vida y notificaciones del segundo plano
 ```
 
 ## Contribuir
@@ -99,4 +102,5 @@ Este proyecto está bajo la Licencia MIT - mira el archivo [LICENSE](LICENSE) pa
 
 ## Versión
 
+- **v1.0.2** - Soporte de monitoreo en segundo plano y Tema Oscuro (Dark Mode)
 - **v1.0.0** - Versión inicial con detección de saltos y control de sensibilidad

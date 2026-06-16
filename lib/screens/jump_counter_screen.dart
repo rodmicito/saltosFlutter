@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:jump_counter/services/accelerometer_service.dart';
-import 'package:sensors_plus/sensors_plus.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:jump_counter/main.dart';
+import 'dart:async';
 import 'dart:math';
 
 class JumpCounterScreen extends StatefulWidget {
@@ -12,7 +14,7 @@ class JumpCounterScreen extends StatefulWidget {
 }
 
 class _JumpCounterScreenState extends State<JumpCounterScreen> {
-  final AccelerometerService _accelerometerService = AccelerometerService();
+  StreamSubscription? _serviceSubscription;
   int _jumpCount = 0;
   bool _isMonitoring = false;
   
@@ -36,59 +38,71 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
   @override
   void initState() {
     super.initState();
-    _accelerometerService.initialize();
-    _accelerometerService.onJumpDetected = _onJumpDetected;
-    _accelerometerService.onAccelerometerData = _onAccelerometerData;
-    _accelerometerService.onVariationPercentage = _onVariationPercentage;
-    _sensitivity = _accelerometerService.jumpThreshold;
+    _requestNotificationPermission();
+    _initBackgroundServiceListener();
   }
-  
-  void _onAccelerometerData(AccelerometerEvent event) {
-    setState(() {
-      _xValue = event.x;
-      _yValue = event.y;
-      _zValue = event.z;
-      _magnitude = _calculateMagnitude(event.x, event.y, event.z);
+
+  void _requestNotificationPermission() {
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+    flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+  }
+
+  void _initBackgroundServiceListener() async {
+    _serviceSubscription = FlutterBackgroundService().on('update').listen((event) {
+      if (event != null) {
+        setState(() {
+          _xValue = (event['x'] as num).toDouble();
+          _yValue = (event['y'] as num).toDouble();
+          _zValue = (event['z'] as num).toDouble();
+          _magnitude = (event['magnitude'] as num).toDouble();
+          _variationPercentage = (event['variationPercentage'] as num).toDouble();
+          _jumpCount = event['jumpCount'] as int;
+          _isMonitoring = event['isMonitoring'] as bool;
+          _sensitivity = (event['sensitivity'] as num).toDouble();
+        });
+      }
     });
-  }
-  
-  void _onVariationPercentage(double percentage) {
-    setState(() {
-      _variationPercentage = percentage;
-    });
-  }
-  
-  double _calculateMagnitude(double x, double y, double z) {
-    return sqrt(x * x + y * y + z * z);
+
+    // Solicitar el estado inicial en caso de que ya esté corriendo
+    final isRunning = await FlutterBackgroundService().isRunning();
+    if (isRunning) {
+      FlutterBackgroundService().invoke('requestState');
+    }
   }
 
   @override
   void dispose() {
-    _accelerometerService.dispose();
+    _serviceSubscription?.cancel();
     super.dispose();
   }
 
-  void _onJumpDetected() {
-    setState(() {
-      _jumpCount++;
-    });
-  }
-
-  void _toggleMonitoring() {
-    setState(() {
-      _isMonitoring = !_isMonitoring;
-      if (_isMonitoring) {
-        _accelerometerService.startMonitoring();
-      } else {
-        _accelerometerService.stopMonitoring();
+  void _toggleMonitoring() async {
+    if (_isMonitoring) {
+      FlutterBackgroundService().invoke('stopMonitoring');
+      FlutterBackgroundService().invoke('stopSelf');
+      setState(() {
+        _isMonitoring = false;
+      });
+    } else {
+      final isRunning = await FlutterBackgroundService().isRunning();
+      if (!isRunning) {
+        await FlutterBackgroundService().startService();
       }
-    });
+      // Esperar brevemente a que el servicio esté listo
+      Future.delayed(const Duration(milliseconds: 500), () {
+        FlutterBackgroundService().invoke('startMonitoring');
+        // Asegurar que use la sensibilidad actual de la UI
+        FlutterBackgroundService().invoke('updateSensitivity', {'value': _sensitivity});
+      });
+    }
   }
 
   void _resetCounter() {
-    setState(() {
-      _jumpCount = 0;
-    });
+    FlutterBackgroundService().invoke('resetCounter');
   }
 
   void _shareResults() {
@@ -101,8 +115,8 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
   void _updateSensitivity(double value) {
     setState(() {
       _sensitivity = value;
-      _accelerometerService.jumpThreshold = value;
     });
+    FlutterBackgroundService().invoke('updateSensitivity', {'value': value});
   }
 
   @override
@@ -111,6 +125,19 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
       appBar: AppBar(
         title: const Text('Contador de Saltos'),
         actions: [
+          IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: () {
+              themeNotifier.value = Theme.of(context).brightness == Brightness.dark
+                  ? ThemeMode.light
+                  : ThemeMode.dark;
+            },
+            tooltip: 'Cambiar tema',
+          ),
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _shareResults,
@@ -141,7 +168,12 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                     ElevatedButton(
                       onPressed: _toggleMonitoring,
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        backgroundColor: _isMonitoring
+                            ? Colors.red
+                            : Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       child: Text(_isMonitoring ? 'Detener' : 'Comenzar'),
                     ),
@@ -198,7 +230,7 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
               LinearProgressIndicator(
                 value: _isMonitoring ? min(1.0, _variationPercentage / _maxVariationDisplay) : 0.0,
                 minHeight: 15,
-                backgroundColor: Colors.grey[300],
+                backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[300],
                 valueColor: AlwaysStoppedAnimation<Color>(
                   _getVariationColor(_variationPercentage),
                 ),
@@ -245,10 +277,24 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                       ),
                       const SizedBox(height: 12),
                       _isMonitoring
-                          ? const Text('Estado: Monitoreando...',
-                              style: TextStyle(color: Colors.green))
-                          : const Text('Estado: Detenido',
-                              style: TextStyle(color: Colors.red)),
+                          ? Text(
+                              'Estado: Monitoreando...',
+                              style: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.greenAccent
+                                    : Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : Text(
+                              'Estado: Detenido',
+                              style: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.redAccent
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ],
                   ),
                 ),
@@ -261,7 +307,10 @@ class _JumpCounterScreenState extends State<JumpCounterScreen> {
                   icon: const Icon(Icons.share),
                   label: const Text('Compartir mis resultados'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.green[800]
+                        : Colors.green,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ),
